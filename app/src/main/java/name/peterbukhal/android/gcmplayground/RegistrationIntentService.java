@@ -2,9 +2,7 @@ package name.peterbukhal.android.gcmplayground;
 
 import android.app.IntentService;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.google.android.gms.iid.InstanceID;
@@ -19,6 +17,7 @@ import java.io.IOException;
 public class RegistrationIntentService extends IntentService {
 
     public static final String TAG = "GcmRegistration";
+    public static final String ACTION_REGISTRATION = "name.peterbukhal.android.gcmplayground.action.ACTION_REGISTRATION";
 
     public RegistrationIntentService() {
         super(TAG);
@@ -28,16 +27,15 @@ public class RegistrationIntentService extends IntentService {
     public void onHandleIntent(Intent intent) {
         InstanceID instanceID = InstanceID.getInstance(this);
         try {
-            String token = instanceID.getToken(getString(R.string.server_sender_id),
-                    GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
+            String token = instanceID.getToken(getString(R.string.server_sender_id), GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
 
-            getSharedPreferences(getPackageName(), MODE_PRIVATE)
-                    .edit()
-                    .putString("token", token)
-                    .commit();
+            Intent intent1 = new Intent();
+            intent1.setAction(ACTION_REGISTRATION);
+            intent1.putExtra(MainActivity.TAG_TOKEN, token);
 
-            Toast.makeText(getApplicationContext(), "Registration success!", Toast.LENGTH_LONG).show();
-            Log.d(TAG, "Client token = " + token);
+            sendBroadcast(intent1);
+
+            Log.d(TAG, "Registration success! " + token);
         } catch (IOException e) {
             e.printStackTrace();
         }

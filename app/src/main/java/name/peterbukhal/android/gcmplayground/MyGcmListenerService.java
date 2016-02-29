@@ -1,7 +1,11 @@
 package name.peterbukhal.android.gcmplayground;
 
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 
 import com.google.android.gms.gcm.GcmListenerService;
@@ -31,12 +35,30 @@ public class MyGcmListenerService extends GcmListenerService {
 
         sendBroadcast(intent);
 
+        notification(message);
+
         Log.d(TAG, "onMessageReceived->\nfrom: " + from + "\ndata:" + data);
     }
 
     @Override
     public void onDeletedMessages() {
         Log.d(TAG, "onDeletedMessages");
+    }
+
+    private void notification(MainActivity.Message message) {
+        NotificationManagerCompat.from(this).cancelAll();
+
+        Intent viewIntent1 = new Intent(this, MainActivity.class);
+        PendingIntent viewPendingIntent1 = PendingIntent.getActivity(this, 100, viewIntent1, 0);
+        Notification notification = new NotificationCompat.Builder(this)
+                .setContentIntent(viewPendingIntent1)
+                .setContentText(message.getMessage())
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSubText(message.getTime())
+                .build();
+
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+        notificationManager.notify(100, notification);
     }
 
 }

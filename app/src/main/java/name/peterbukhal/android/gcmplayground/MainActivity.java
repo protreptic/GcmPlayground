@@ -4,19 +4,21 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.PersistableBundle;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -68,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private List<Message> messages = new ArrayList<>();
+    private ArrayList<Message> messages = new ArrayList<>();
 
     private class MessageReceiver extends BroadcastReceiver {
 
@@ -77,6 +79,19 @@ public class MainActivity extends AppCompatActivity {
             if (intent.getAction().equals(MyGcmListenerService.ACTION_NEW_MESSAGE)) {
                 messages.add(intent.<Message>getParcelableExtra("message"));
                 messageAdapter.notifyDataSetChanged();
+            }
+        }
+    }
+
+    private class RegistrationReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(RegistrationIntentService.ACTION_REGISTRATION)) {
+                getSharedPreferences(getPackageName(), MODE_PRIVATE)
+                        .edit()
+                        .putString(TAG_TOKEN, intent.getStringExtra(TAG_TOKEN))
+                        .commit();
             }
         }
     }
@@ -129,22 +144,49 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-
     }
 
     private MessageReceiver messageReceiver = new MessageReceiver();
+    private RegistrationReceiver registrationReceiver = new RegistrationReceiver();
     private MessageAdapter messageAdapter = new MessageAdapter();
+
+    private String token;
+
+    public static final String TAG_TOKEN = "tag_token";
+    public static final String TAG_MESSAGES = "tag_messages";
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        outState.putString(TAG_TOKEN, token);
+        outState.putParcelableArrayList(TAG_MESSAGES, messages);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        SharedPreferences preferences = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+
+        if (savedInstanceState != null
+                && savedInstanceState.containsKey(TAG_TOKEN)
+                && savedInstanceState.containsKey(TAG_MESSAGES)) {
+            token = savedInstanceState.getString(TAG_TOKEN);
+            messages.addAll(savedInstanceState.<Message>getParcelableArrayList(TAG_MESSAGES));
+        } if (preferences.contains(TAG_TOKEN)) {
+            token = preferences.getString(TAG_TOKEN, null);
+        } else {
+            Intent intent = new Intent(getApplicationContext(), RegistrationIntentService.class);
+            startService(intent);
+        }
 
         setContentView(R.layout.activity_main);
 
         ListView messages = (ListView) findViewById(R.id.messages);
         messages.setAdapter(messageAdapter);
 
-        registerGcm();
+        registerReceiver(registrationReceiver, new IntentFilter(RegistrationIntentService.ACTION_REGISTRATION));
         registerReceiver(messageReceiver, new IntentFilter(MyGcmListenerService.ACTION_NEW_MESSAGE));
     }
 
@@ -152,12 +194,25 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
 
+        unregisterReceiver(registrationReceiver);
         unregisterReceiver(messageReceiver);
     }
 
-    private void registerGcm() {
-        Intent intent = new Intent(getApplicationContext(), RegistrationIntentService.class);
-        startService(intent);
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu); return true;
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.clearMessages: {
+                messages.clear();
+                messageAdapter.notifyDataSetChanged();
+                return true;
+            }
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
 }
