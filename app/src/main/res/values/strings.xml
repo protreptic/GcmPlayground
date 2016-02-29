@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">GcmPlayground</string>
+    <string name="server_sender_id">200182521433</string>
+    <string name="register">Register</string>
+</resources>
