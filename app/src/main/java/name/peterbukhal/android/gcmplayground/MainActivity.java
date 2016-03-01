@@ -81,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(MyGcmListenerService.ACTION_NEW_MESSAGE)) {
-                Message message = intent.<Message>getParcelableExtra("message");
+                Message message = intent.getParcelableExtra("message");
 
                 ContentValues contentValues = new ContentValues();
                 contentValues.put("time", message.getTime());
