@@ -1,14 +1,16 @@
 package name.peterbukhal.android.gcmplayground;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.PersistableBundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,6 +21,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -71,16 +74,57 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private ArrayList<Message> messages = new ArrayList<>();
+    private MessagesDatabaseHelper messagesDatabase;
 
     private class MessageReceiver extends BroadcastReceiver {
 
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(MyGcmListenerService.ACTION_NEW_MESSAGE)) {
-                messages.add(intent.<Message>getParcelableExtra("message"));
-                messageAdapter.notifyDataSetChanged();
+                Message message = intent.<Message>getParcelableExtra("message");
+
+                ContentValues contentValues = new ContentValues();
+                contentValues.put("time", message.getTime());
+                contentValues.put("message", message.getMessage());
+
+                SQLiteDatabase database = messagesDatabase.getWritableDatabase();
+                database.insert("messages", null, contentValues);
+                database.close();
+
+                updateMessages();
             }
         }
+    }
+
+    private void updateMessages() {
+        SQLiteDatabase database = messagesDatabase.getWritableDatabase();
+
+        List<Message> messageList = new ArrayList<>();
+
+        Cursor cursor = database.query("messages", null, null, null, null, null, null);
+
+        while (cursor.moveToNext()) {
+            messageList.add(
+                    new Message(
+                            cursor.getString(cursor.getColumnIndex("time")),
+                            cursor.getString(cursor.getColumnIndex("message"))));
+        }
+
+        cursor.close();
+
+        messages.clear();
+        messages.addAll(messageList);
+        messageAdapter.notifyDataSetChanged();
+
+        database.close();
+    }
+
+    private void clearMessages() {
+        SQLiteDatabase database = messagesDatabase.getWritableDatabase();
+        database.execSQL("delete from messages;");
+        database.close();
+
+        updateMessages();
     }
 
     private class RegistrationReceiver extends BroadcastReceiver {
@@ -168,13 +212,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         SharedPreferences preferences = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+        messagesDatabase = new MessagesDatabaseHelper(getApplicationContext());
 
         if (savedInstanceState != null
                 && savedInstanceState.containsKey(TAG_TOKEN)
                 && savedInstanceState.containsKey(TAG_MESSAGES)) {
             token = savedInstanceState.getString(TAG_TOKEN);
             messages.addAll(savedInstanceState.<Message>getParcelableArrayList(TAG_MESSAGES));
-        } if (preferences.contains(TAG_TOKEN)) {
+        }
+        if (preferences.contains(TAG_TOKEN)) {
             token = preferences.getString(TAG_TOKEN, null);
         } else {
             Intent intent = new Intent(getApplicationContext(), RegistrationIntentService.class);
@@ -188,6 +234,8 @@ public class MainActivity extends AppCompatActivity {
 
         registerReceiver(registrationReceiver, new IntentFilter(RegistrationIntentService.ACTION_REGISTRATION));
         registerReceiver(messageReceiver, new IntentFilter(MyGcmListenerService.ACTION_NEW_MESSAGE));
+
+        updateMessages();
     }
 
     @Override
@@ -200,15 +248,16 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu); return true;
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.clearMessages: {
-                messages.clear();
-                messageAdapter.notifyDataSetChanged();
+                clearMessages();
+
                 return true;
             }
         }
