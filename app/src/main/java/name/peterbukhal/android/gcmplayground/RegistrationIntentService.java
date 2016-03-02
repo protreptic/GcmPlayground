@@ -2,6 +2,7 @@ package name.peterbukhal.android.gcmplayground;
 
 import android.app.IntentService;
 import android.content.Intent;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.google.android.gms.gcm.GoogleCloudMessaging;
@@ -33,7 +34,7 @@ public class RegistrationIntentService extends IntentService {
             intent1.setAction(ACTION_REGISTRATION);
             intent1.putExtra(MainActivity.TAG_TOKEN, token);
 
-            sendBroadcast(intent1);
+            LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent1);
 
             Log.d(TAG, "Registration success! " + token);
         } catch (IOException e) {

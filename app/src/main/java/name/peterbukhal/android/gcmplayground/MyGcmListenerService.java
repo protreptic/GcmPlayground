@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.google.android.gms.gcm.GcmListenerService;
@@ -33,7 +34,7 @@ public class MyGcmListenerService extends GcmListenerService {
         intent.setAction(ACTION_NEW_MESSAGE);
         intent.putExtra("message", message);
 
-        sendBroadcast(intent);
+        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
 
         notification(message);
 
@@ -45,12 +46,15 @@ public class MyGcmListenerService extends GcmListenerService {
         Log.d(TAG, "onDeletedMessages");
     }
 
-    private void notification(MainActivity.Message message) {
-        NotificationManagerCompat.from(this).cancelAll();
+    private static int notificationId = 4125182;
 
-        Intent viewIntent1 = new Intent(this, MainActivity.class);
-        PendingIntent viewPendingIntent1 = PendingIntent.getActivity(this, 100, viewIntent1, 0);
-        Notification notification = new NotificationCompat.Builder(this)
+    private void notification(MainActivity.Message message) {
+        NotificationManagerCompat.from(getApplicationContext()).cancelAll();
+
+        Intent viewIntent1 = new Intent(getApplicationContext(), MainActivity.class);
+        viewIntent1.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent viewPendingIntent1 = PendingIntent.getActivity(getApplicationContext(), 0, viewIntent1, 0);
+        Notification notification = new NotificationCompat.Builder(getApplicationContext())
                 .setContentIntent(viewPendingIntent1)
                 .setContentText(message.getMessage())
                 .setSmallIcon(R.mipmap.ic_launcher)
@@ -58,7 +62,7 @@ public class MyGcmListenerService extends GcmListenerService {
                 .build();
 
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-        notificationManager.notify(100, notification);
+        notificationManager.notify(++notificationId, notification);
     }
 
 }

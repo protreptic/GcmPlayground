@@ -11,6 +11,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -73,9 +74,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private ArrayList<Message> messages = new ArrayList<>();
-    private MessagesDatabaseHelper messagesDatabase;
-
     private class MessageReceiver extends BroadcastReceiver {
 
         @Override
@@ -97,10 +95,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMessages() {
-        SQLiteDatabase database = messagesDatabase.getWritableDatabase();
-
         List<Message> messageList = new ArrayList<>();
 
+        SQLiteDatabase database = messagesDatabase.getWritableDatabase();
         Cursor cursor = database.query("messages", null, null, null, null, null, null);
 
         while (cursor.moveToNext()) {
@@ -111,12 +108,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         cursor.close();
+        database.close();
 
         messages.clear();
         messages.addAll(messageList);
         messageAdapter.notifyDataSetChanged();
-
-        database.close();
     }
 
     private void clearMessages() {
@@ -190,6 +186,9 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private ArrayList<Message> messages = new ArrayList<>();
+    private MessagesDatabaseHelper messagesDatabase;
+    private LocalBroadcastManager broadcastManager;
     private MessageReceiver messageReceiver = new MessageReceiver();
     private RegistrationReceiver registrationReceiver = new RegistrationReceiver();
     private MessageAdapter messageAdapter = new MessageAdapter();
@@ -214,14 +213,18 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences preferences = getSharedPreferences(getPackageName(), MODE_PRIVATE);
         messagesDatabase = new MessagesDatabaseHelper(getApplicationContext());
 
+        broadcastManager = LocalBroadcastManager.getInstance(getApplicationContext());
+        broadcastManager.registerReceiver(registrationReceiver, new IntentFilter(RegistrationIntentService.ACTION_REGISTRATION));
+        broadcastManager.registerReceiver(messageReceiver, new IntentFilter(MyGcmListenerService.ACTION_NEW_MESSAGE));
+
         if (savedInstanceState != null
                 && savedInstanceState.containsKey(TAG_TOKEN)
                 && savedInstanceState.containsKey(TAG_MESSAGES)) {
             token = savedInstanceState.getString(TAG_TOKEN);
             messages.addAll(savedInstanceState.<Message>getParcelableArrayList(TAG_MESSAGES));
-        }
-        if (preferences.contains(TAG_TOKEN)) {
+        } else if (preferences.contains(TAG_TOKEN)) {
             token = preferences.getString(TAG_TOKEN, null);
+            updateMessages();
         } else {
             Intent intent = new Intent(getApplicationContext(), RegistrationIntentService.class);
             startService(intent);
@@ -231,19 +234,14 @@ public class MainActivity extends AppCompatActivity {
 
         ListView messages = (ListView) findViewById(R.id.messages);
         messages.setAdapter(messageAdapter);
-
-        registerReceiver(registrationReceiver, new IntentFilter(RegistrationIntentService.ACTION_REGISTRATION));
-        registerReceiver(messageReceiver, new IntentFilter(MyGcmListenerService.ACTION_NEW_MESSAGE));
-
-        updateMessages();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        unregisterReceiver(registrationReceiver);
-        unregisterReceiver(messageReceiver);
+        broadcastManager.unregisterReceiver(registrationReceiver);
+        broadcastManager.unregisterReceiver(messageReceiver);
     }
 
     @Override
